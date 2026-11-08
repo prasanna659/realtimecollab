@@ -1,4 +1,5 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
 # realtimecollab
 =======
 # 🚀 RealtimeCollab
@@ -804,3 +805,6 @@ Found a bug? Have a feature idea?
 
 [Add your license here — MIT, Apache 2.0, etc.]
 >>>>>>> 78122af (intial commit)
+=======
+# realtimecollab
+>>>>>>> 76f6ced203de07eeed0c44bae016f164a5a80a11
