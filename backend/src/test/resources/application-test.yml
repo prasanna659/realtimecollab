@@ -1,0 +1,29 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:realtimecollab_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: true
+
+  flyway:
+    enabled: false
+
+  sql:
+    init:
+      mode: never
+
+app:
+  jwt:
+    secret: test-secret-key-that-is-long-enough-for-hmac-sha-256-signing
+    access-token-ttl-minutes: 15
+    refresh-token-ttl-days: 7
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:8081
