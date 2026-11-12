@@ -1,45 +1,55 @@
+# cp .env.example .env  (set DB_PASSWORD and JWT_SECRET)  then  docker compose up --build
+# App: http://localhost:8081   (nginx serves the SPA and proxies /api and /ws to the backend)
+
 services:
   postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_DB: realtimecollab
-      POSTGRES_USER: realtimecollab
-      POSTGRES_PASSWORD: realtimecollab
+      POSTGRES_DB: ${DB_NAME:-realtimecollab}
+      POSTGRES_USER: ${DB_USER:-realtimecollab}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"   # local-only, for debugging. Remove on a server.
     volumes:
       - pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U realtimecollab"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-realtimecollab} -d ${DB_NAME:-realtimecollab}"]
       interval: 5s
       timeout: 5s
       retries: 10
+    restart: unless-stopped
 
   backend:
     build: ./backend
     environment:
-      DB_URL: jdbc:postgresql://postgres:5432/realtimecollab
-      DB_USER: realtimecollab
-      DB_PASSWORD: realtimecollab
-      JWT_SECRET: change-this-to-a-long-random-value-in-prod-change-this-to-a-long-random-value
-      CORS_ORIGINS: http://localhost:8081,http://localhost:5173
-    ports:
-      - "8080:8080"
+      DB_URL: jdbc:postgresql://postgres:5432/${DB_NAME:-realtimecollab}
+      DB_USER: ${DB_USER:-realtimecollab}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (min 32 chars)}
+      JWT_ACCESS_TTL: ${JWT_ACCESS_TTL:-15}
+      JWT_REFRESH_TTL: ${JWT_REFRESH_TTL:-7}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:8081}
+    expose:
+      - "8080"
     depends_on:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8080/actuator/health"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/actuator/health | grep -q UP"]
       interval: 10s
       timeout: 5s
-      retries: 10
+      retries: 12
+      start_period: 40s
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
     ports:
       - "8081:80"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

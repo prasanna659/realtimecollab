@@ -32,4 +32,25 @@ class JwtServiceTest {
 
         assertFalse(jwtService.isValid(tampered));
     }
+
+    @Test
+    void rejectsATokenSignedWithAnotherSecret() {
+        JwtService other = new JwtService("another-secret-key-that-is-long-enough-for-hmac-sha-256", 15);
+        String token = other.generateAccessToken(UUID.randomUUID(), "eve@example.com", "MEMBER");
+
+        assertFalse(jwtService.isValid(token));
+    }
+
+    @Test
+    void refusesToStartWithAMissingOrShortSecret() {
+        assertThrows(IllegalStateException.class, () -> new JwtService(null, 15));
+        assertThrows(IllegalStateException.class, () -> new JwtService("", 15));
+        assertThrows(IllegalStateException.class, () -> new JwtService("too-short", 15));
+    }
+
+    @Test
+    void refusesAPlaceholderSecret() {
+        assertThrows(IllegalStateException.class, () -> new JwtService(
+                "change-this-to-a-long-random-value-in-prod-change-this-to-a-long-random-value", 15));
+    }
 }

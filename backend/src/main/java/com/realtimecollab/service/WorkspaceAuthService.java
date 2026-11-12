@@ -36,4 +36,11 @@ public class WorkspaceAuthService {
             throw ApiException.forbidden("Only the workspace owner can perform this action");
         }
     }
+
+    /** A task may only be assigned to someone who belongs to the task's workspace. */
+    public void requireAssignable(UUID workspaceId, UUID assigneeId) {
+        if (!workspaceMemberRepository.existsByWorkspaceIdAndUserId(workspaceId, assigneeId)) {
+            throw ApiException.badRequest("Assignee must be a member of this workspace");
+        }
+    }
 }

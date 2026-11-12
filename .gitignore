@@ -12,3 +12,12 @@ frontend/dist/
 
 # OS
 .DS_Store
+
+# Compiled / editor output
+frontend/*.tsbuildinfo
+frontend/vite.config.js
+frontend/vite.config.d.ts
+.vscode/
+.env.*
+!.env.example
+!**/.env.example

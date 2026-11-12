@@ -23,6 +23,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Configuration
 @EnableWebSocketMessageBroker
@@ -34,6 +36,25 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Value("${app.cors.allowed-origins}")
     private String allowedOrigins;
+
+    /** The only destination clients may subscribe to: one project's board topic. */
+    private static final Pattern BOARD_TOPIC = Pattern.compile("^/topic/projects/([0-9a-fA-F-]{36})/board$");
+
+    /**
+     * Returns the project id for a valid board destination, or null for anything else.
+     * Wildcards such as /topic/** or /topic/projects/&#42;/board never match, so a client
+     * cannot subscribe across projects and receive other teams' events.
+     */
+    static UUID parseBoardProjectId(String destination) {
+        if (destination == null) return null;
+        Matcher m = BOARD_TOPIC.matcher(destination);
+        if (!m.matches()) return null;
+        try {
+            return UUID.fromString(m.group(1));
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
 
     public WebSocketConfig(JwtService jwtService, UserRepository userRepository, ProjectAccessService projectAccessService) {
         this.jwtService = jwtService;
@@ -107,19 +128,12 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                         throw new MessageDeliveryException("Authentication required to subscribe");
                     }
 
-                    String destination = accessor.getDestination();
-                    if (destination != null && destination.startsWith("/topic/projects/")) {
-                        String[] parts = destination.split("/");
-                        if (parts.length >= 5) {
-                            try {
-                                UUID projectId = UUID.fromString(parts[3]);
-                                if (!projectAccessService.canAccessProject(userId, projectId)) {
-                                    throw new MessageDeliveryException("You are not authorized to access this project");
-                                }
-                            } catch (IllegalArgumentException ex) {
-                                throw new MessageDeliveryException("Invalid project subscription destination");
-                            }
-                        }
+                    UUID projectId = parseBoardProjectId(accessor.getDestination());
+                    if (projectId == null) {
+                        throw new MessageDeliveryException("Unsupported subscription destination");
+                    }
+                    if (!projectAccessService.canAccessProject(userId, projectId)) {
+                        throw new MessageDeliveryException("You are not authorized to access this project");
                     }
                 }
 

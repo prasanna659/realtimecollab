@@ -1,32 +1,20 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
-import { UserPlus, Crown, Shield, Mail, Trash2, X, Users } from "lucide-react";
+import { UserPlus, Crown, Shield, Mail, Trash2, X, Users, LogOut } from "lucide-react";
 import { workspaceService } from "../services/workspaceService";
 import { useAuthStore } from "../store/authStore";
-
-function Avatar({ name }: { name: string }) {
-  const initials = name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
-  const gradients = [
-    "from-violet-500 to-indigo-600",
-    "from-cyan-500 to-teal-500",
-    "from-emerald-500 to-green-600",
-    "from-amber-500 to-orange-500",
-    "from-rose-500 to-pink-500",
-  ];
-  const g = gradients[name.charCodeAt(0) % gradients.length];
-  return (
-    <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gradient-to-br ${g} text-xs font-bold text-white shadow-sm`}>
-      {initials}
-    </div>
-  );
-}
+import { Avatar } from "../components/Avatar";
+import { toast } from "../store/toastStore";
+import { getErrorMessage } from "../lib/errors";
 
 export default function MembersPage() {
   const { workspaceId } = useParams();
   const currentUser = useAuthStore((s) => s.user);
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [confirm, setConfirm] = useState<"leave" | "delete" | null>(null);
   const [showInvite, setShowInvite] = useState(false);
   const [email, setEmail] = useState("");
   const [inviteMsg, setInviteMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -44,14 +32,31 @@ export default function MembersPage() {
       setEmail("");
       queryClient.invalidateQueries({ queryKey: ["members", workspaceId] });
     },
-    onError: (err: any) => {
-      setInviteMsg({ type: "error", text: err?.response?.data?.message ?? "Could not invite that person" });
+    onError: (err) => {
+      setInviteMsg({ type: "error", text: getErrorMessage(err, "Could not invite that person") });
     },
   });
 
   const remove = useMutation({
     mutationFn: (userId: string) => workspaceService.removeMember(workspaceId!, userId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["members", workspaceId] }),
+    onSuccess: () => {
+      toast.success("Member removed");
+      queryClient.invalidateQueries({ queryKey: ["members", workspaceId] });
+    },
+    onError: (err) => toast.error(getErrorMessage(err, "Could not remove that member")),
+  });
+
+  const leaveOrDelete = useMutation({
+    mutationFn: () => (confirm === "delete" ? workspaceService.delete(workspaceId!) : workspaceService.leave(workspaceId!)),
+    onSuccess: () => {
+      toast.success(confirm === "delete" ? "Workspace deleted" : "You left the workspace");
+      queryClient.invalidateQueries({ queryKey: ["workspaces"] });
+      navigate("/workspaces", { replace: true });
+    },
+    onError: (err) => {
+      setConfirm(null);
+      toast.error(getErrorMessage(err));
+    },
   });
 
   const myRole = members.find((m) => m.userId === currentUser?.id)?.role;
@@ -153,7 +158,7 @@ export default function MembersPage() {
             <motion.div key={member.userId}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: i * 0.04 }}
               className="card group flex items-center gap-3 p-4 transition-shadow hover:shadow-card-hover">
-              <Avatar name={member.name} />
+              <Avatar name={member.name} size="lg" />
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="truncate text-sm font-semibold text-ink">{member.name}</span>
@@ -174,12 +179,37 @@ export default function MembersPage() {
               </div>
               {isOwner && member.userId !== currentUser?.id && member.role !== "OWNER" && (
                 <button onClick={() => remove.mutate(member.userId)}
-                  className="btn-ghost p-2 text-sm opacity-0 transition-all group-hover:opacity-100 hover:bg-red-50 hover:text-danger">
+                  aria-label={`Remove ${member.name}`} className="btn-ghost p-2 text-sm transition-all hover:bg-red-50 hover:text-danger sm:opacity-0 sm:group-hover:opacity-100 sm:focus:opacity-100">
                   <Trash2 size={14} />
                 </button>
               )}
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Danger zone */}
+      {myRole && (
+        <div className="mt-10 rounded-2xl border border-danger/20 p-5">
+          <h2 className="font-display text-sm font-bold text-danger">{isOwner ? "Delete workspace" : "Leave workspace"}</h2>
+          <p className="mt-1 text-xs text-muted">
+            {isOwner
+              ? "Permanently deletes this workspace with all its projects, tasks and comments. This cannot be undone."
+              : "You will lose access to this workspace's projects and tasks. An owner can add you back."}
+          </p>
+          {confirm ? (
+            <div className="mt-3 flex items-center gap-2">
+              <span className="text-xs font-medium text-danger">Are you sure?</span>
+              <button onClick={() => setConfirm(null)} className="btn-ghost py-1 text-xs">Cancel</button>
+              <button onClick={() => leaveOrDelete.mutate()} disabled={leaveOrDelete.isPending} className="btn-danger px-3 py-1 text-xs">
+                {leaveOrDelete.isPending ? "Working…" : isOwner ? "Yes, delete it" : "Yes, leave"}
+              </button>
+            </div>
+          ) : (
+            <button onClick={() => setConfirm(isOwner ? "delete" : "leave")} className="btn-secondary mt-3 text-xs text-danger">
+              {isOwner ? <Trash2 size={13} /> : <LogOut size={13} />} {isOwner ? "Delete workspace" : "Leave workspace"}
+            </button>
+          )}
         </div>
       )}
     </div>

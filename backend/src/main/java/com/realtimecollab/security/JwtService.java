@@ -22,7 +22,14 @@ public class JwtService {
             @Value("${app.jwt.secret}") String secret,
             @Value("${app.jwt.access-token-ttl-minutes}") long accessTokenTtlMinutes
     ) {
-        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes());
+        if (secret == null || secret.getBytes(java.nio.charset.StandardCharsets.UTF_8).length < 32) {
+            throw new IllegalStateException("JWT_SECRET must be set and at least 32 bytes long "
+                    + "(generate one with: openssl rand -hex 64)");
+        }
+        if (secret.toLowerCase().contains("change-this")) {
+            throw new IllegalStateException("JWT_SECRET is still a placeholder value; set a real random secret");
+        }
+        this.signingKey = Keys.hmacShaKeyFor(secret.getBytes(java.nio.charset.StandardCharsets.UTF_8));
         this.accessTokenTtlMinutes = accessTokenTtlMinutes;
     }
 

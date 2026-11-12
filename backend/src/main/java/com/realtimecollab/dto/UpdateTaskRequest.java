@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public record UpdateTaskRequest(
         @NotBlank @Size(max = 200) String title,
-        String description,
+        @Size(max = 5000) String description,
         TaskPriority priority,
         LocalDate dueDate,
         UUID assigneeId

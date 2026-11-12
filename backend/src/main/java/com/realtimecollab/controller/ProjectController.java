@@ -43,4 +43,9 @@ public class ProjectController {
     public ResponseEntity<ProjectDto> archive(@AuthenticationPrincipal UserPrincipal me, @PathVariable UUID id) {
         return ResponseEntity.ok(projectService.setArchived(id, me.getId(), true));
     }
+
+    @PostMapping("/api/projects/{id}/restore")
+    public ResponseEntity<ProjectDto> restore(@AuthenticationPrincipal UserPrincipal me, @PathVariable UUID id) {
+        return ResponseEntity.ok(projectService.setArchived(id, me.getId(), false));
+    }
 }

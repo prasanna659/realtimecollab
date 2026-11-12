@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useToast } from "../components/Toast";
+import { useToast } from "../hooks/useToast";
 import { workspaceService } from "../services/workspaceService";
 
 export function useWorkspaces() {
