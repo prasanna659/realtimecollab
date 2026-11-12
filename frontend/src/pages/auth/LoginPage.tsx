@@ -70,10 +70,6 @@ export default function LoginPage() {
         <div>
           <div className="mb-1.5 flex items-center justify-between">
             <label className="label !mb-0">Password</label>
-            {/* Forgot password link - currently non-functional placeholder */}
-            <button type="button" className="text-xs font-medium text-primary transition-colors hover:text-primary-hover">
-              Forgot password?
-            </button>
           </div>
           <div className="relative">
             {/* Lock icon */}

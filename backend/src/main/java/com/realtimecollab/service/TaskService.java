@@ -33,20 +33,23 @@ public class TaskService {
         Project project = projectService.requireProject(projectId);
         workspaceAuthService.requireMember(project.getWorkspace().getId(), actorId);
 
-        User creator = userRepository.findById(actorId).orElseThrow(() -> ApiException.notFound("User not found"));
-        User assignee = request.assigneeId() != null
-                ? userRepository.findById(request.assigneeId()).orElseThrow(() -> ApiException.notFound("Assignee not found"))
-                : null;
+        if (project.getStatus() == ProjectStatus.ARCHIVED) {
+            throw ApiException.conflict("This project is archived. Restore it to add tasks.");
+        }
 
+        User creator = userRepository.findById(actorId).orElseThrow(() -> ApiException.notFound("User not found"));
+        User assignee = resolveAssignee(project.getWorkspace().getId(), request.assigneeId());
+
+        TaskStatus status = request.status() != null ? request.status() : TaskStatus.TODO;
         int nextPosition = taskRepository.findAllByProjectIdOrderByPositionAsc(projectId).stream()
-                .filter(t -> t.getStatus() == TaskStatus.TODO)
+                .filter(t -> t.getStatus() == status)
                 .mapToInt(Task::getPosition).max().orElse(-1) + 1;
 
         Task task = Task.builder()
                 .project(project)
                 .title(request.title().trim())
                 .description(request.description())
-                .status(TaskStatus.TODO)
+                .status(status)
                 .priority(request.priority() != null ? request.priority() : TaskPriority.MEDIUM)
                 .position(nextPosition)
                 .dueDate(request.dueDate())
@@ -77,9 +80,7 @@ public class TaskService {
         workspaceAuthService.requireMember(task.getProject().getWorkspace().getId(), actorId);
 
         User updater = userRepository.findById(actorId).orElseThrow(() -> ApiException.notFound("User not found"));
-        User assignee = request.assigneeId() != null
-                ? userRepository.findById(request.assigneeId()).orElseThrow(() -> ApiException.notFound("Assignee not found"))
-                : null;
+        User assignee = resolveAssignee(task.getProject().getWorkspace().getId(), request.assigneeId());
 
         task.setTitle(request.title().trim());
         task.setDescription(request.description());
@@ -149,6 +150,14 @@ public class TaskService {
         boardEventPublisher.publish(task.getProject().getId(), new BoardEvent("TASK_DELETED", task.getProject().getId(), task.getId(), null, actorId, actorName));
     }
 
+    /** Null means unassigned. Anyone else must belong to the workspace. */
+    private User resolveAssignee(UUID workspaceId, UUID assigneeId) {
+        if (assigneeId == null) return null;
+        workspaceAuthService.requireAssignable(workspaceId, assigneeId);
+        return userRepository.findById(assigneeId)
+                .orElseThrow(() -> ApiException.notFound("Assignee not found"));
+    }
+
     Task requireTask(UUID taskId) {
         return taskRepository.findById(taskId)
                 .orElseThrow(() -> ApiException.notFound("Task not found"));
@@ -156,13 +165,5 @@ public class TaskService {
 
     public static UUID currentUserId(UserPrincipal principal) {
         return principal.getId();
-    }
-
-    private String prettyStatus(TaskStatus status) {
-        return switch (status) {
-            case TODO -> "Backlog";
-            case IN_PROGRESS -> "In Progress";
-            case DONE -> "Done";
-        };
     }
 }

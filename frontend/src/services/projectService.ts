@@ -10,4 +10,5 @@ export const projectService = {
   update: (id: string, payload: { name: string; description?: string; color?: string }) =>
     api.put<Project>(`/projects/${id}`, payload).then((r) => r.data),
   archive: (id: string) => api.post<Project>(`/projects/${id}/archive`).then((r) => r.data),
+  restore: (id: string) => api.post<Project>(`/projects/${id}/restore`).then((r) => r.data),
 };

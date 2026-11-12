@@ -6,7 +6,8 @@ export interface CreateTaskPayload {
   description?: string;
   priority?: TaskPriority;
   dueDate?: string;
-  assigneeId?: string;
+  assigneeId?: string | null;
+  status?: TaskStatus;
 }
 
 export const taskService = {

@@ -1,8 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "../components/Toast";
+import { useToast } from "../hooks/useToast";
 import { authService } from "../services/authService";
 import { useAuthStore } from "../store/authStore";
+import { getErrorMessage } from "../lib/errors";
 import type { LoginPayload, RegisterPayload } from "../types/auth";
 
 export function useAuth() {
@@ -17,8 +18,8 @@ export function useAuth() {
       push("Signed in successfully", "success");
       navigate("/workspaces");
     },
-    onError: () => {
-      push("Unable to sign in. Please check your credentials.", "error");
+    onError: (e) => {
+      push(getErrorMessage(e, "Unable to sign in. Please check your credentials."), "error");
     },
   });
 
@@ -29,8 +30,8 @@ export function useAuth() {
       push("Account created successfully", "success");
       navigate("/workspaces");
     },
-    onError: () => {
-      push("Could not create your account. Please try again.", "error");
+    onError: (e) => {
+      push(getErrorMessage(e, "Could not create your account. Please try again."), "error");
     },
   });
 

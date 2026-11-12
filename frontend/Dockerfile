@@ -1,8 +1,9 @@
 FROM node:22-alpine AS build
 WORKDIR /app
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 COPY . .
+# No VITE_* needed: production builds call /api and /ws on the page's own host, and nginx proxies them.
 RUN npm run build
 
 FROM nginx:1.27-alpine

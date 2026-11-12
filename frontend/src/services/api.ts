@@ -1,11 +1,11 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import { useAuthStore } from "../store/authStore";
 import type { AuthResponse } from "../types/auth";
+import { isExpiringSoon } from "../lib/jwt";
 
 export const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL ?? "http://localhost:8080/api",
-  // Include credentials (cookies) for cross-origin requests
-  withCredentials: false,
+  baseURL: import.meta.env.VITE_API_URL ?? (import.meta.env.DEV ? "http://localhost:8080/api" : "/api"),
+  timeout: 20_000,
 });
 
 api.interceptors.request.use((config) => {
@@ -34,6 +34,20 @@ async function performRefresh(): Promise<string> {
   return data.accessToken;
 }
 
+/** Returns a usable access token, refreshing first if it is missing or about to expire. Used by the WebSocket. */
+export async function ensureFreshToken(): Promise<string | null> {
+  const { accessToken } = useAuthStore.getState();
+  if (!isExpiringSoon(accessToken)) return accessToken;
+  try {
+    refreshInFlight ??= performRefresh().finally(() => {
+      refreshInFlight = null;
+    });
+    return await refreshInFlight;
+  } catch {
+    return null;
+  }
+}
+
 api.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
@@ -57,14 +71,6 @@ api.interceptors.response.use(
         window.location.href = "/login";
         return Promise.reject(refreshError);
       }
-    }
-
-    // Handle 403 — token present but no permission, or no token at all in dev mode
-    if (error.response?.status === 403) {
-      console.warn(
-        `[API] 403 Forbidden on ${original?.url}. ` +
-        `This usually means: no JWT token, expired token, or insufficient permissions.`
-      );
     }
 
     return Promise.reject(error);

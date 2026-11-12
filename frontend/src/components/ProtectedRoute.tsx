@@ -11,13 +11,3 @@ export function ProtectedRoute() {
 
   return <Outlet />;
 }
-
-export function AdminRoute() {
-  const user = useAuthStore((s) => s.user);
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-
-  if (!isAuthenticated) return <Navigate to="/login" replace />;
-  if (user?.role !== "ADMIN") return <Navigate to="/board" replace />;
-
-  return <Outlet />;
-}
